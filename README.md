@@ -6,7 +6,8 @@ this project is inspired by a summary of visualization methods in
 ), as well as [deep visualization toolbox](https://github.com/yosinski/deep-visualization-toolbox).
 
 Visualization of CNN units in higher layers is important for my work, and currently (May 2017), I'm not
-aware of any library with similar capabilities as the two mentioned above written for PyTorch.
+aware of any library with similar capabilities as the two mentioned above written for PyTorch. For a discussion of
+this feature in PyTorch, see <https://discuss.pytorch.org/t/understanding-deep-network-visualize-weights/2060>
 
 Indeed I have some experience with deep visualization toolbox, which only supports Caffe.
 However, it has very poor support for networks whose input size is not around 256x256x3
