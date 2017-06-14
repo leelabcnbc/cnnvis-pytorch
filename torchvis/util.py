@@ -23,7 +23,24 @@ class GradType(Enum):
     DECONV = auto()
 
 
-def forward_hook(m, in_, out_, module_name, callback_dict):
+def augment_module(net: nn.Module):
+    layer_dict, remove_forward = _augment_module_pre(net)
+    vis_param_dict, remove_backward = _augment_module_post(net, layer_dict)
+
+    def remove_handles():
+        remove_forward()
+        remove_backward()
+
+    def reset_state():
+        for x, y in layer_dict.items():
+            print('clearing {}'.format(x))
+            assert isinstance(y, dict)
+            y.clear()
+
+    return vis_param_dict, reset_state, remove_handles
+
+
+def _forward_hook(m, in_, out_, module_name, callback_dict):
     # if callback_dict[module_name]['type'] == LayerType.RELU:
     assert isinstance(out_, Variable)
     assert 'output' not in callback_dict[module_name], 'same module called twice!'
@@ -33,7 +50,7 @@ def forward_hook(m, in_, out_, module_name, callback_dict):
     print(module_name, callback_dict[module_name]['output'].size())
 
 
-def augment_module_pre(net: nn.Module) -> (dict, list):
+def _augment_module_pre(net: nn.Module) -> (dict, list):
     callback_dict = OrderedDict()  # not necessarily ordered, but this can help some readability.
 
     forward_hook_remove_func_list = []
@@ -43,12 +60,16 @@ def augment_module_pre(net: nn.Module) -> (dict, list):
             if isinstance(y, nn.ReLU):
                 callback_dict[x] = {}
                 forward_hook_remove_func_list.append(
-                    y.register_forward_hook(partial(forward_hook, module_name=x, callback_dict=callback_dict)))
+                    y.register_forward_hook(partial(_forward_hook, module_name=x, callback_dict=callback_dict)))
 
-    return callback_dict, forward_hook_remove_func_list
+    def remove_handles():
+        for x in forward_hook_remove_func_list:
+            x.remove()
+
+    return callback_dict, remove_handles
 
 
-def backward_hook(m: nn.Module, grad_in_, grad_out_, module_name, callback_dict, vis_param_dict):
+def _backward_hook(m: nn.Module, grad_in_, grad_out_, module_name, callback_dict, vis_param_dict):
     # print(module_name)
     # assert isinstance(grad_in_, tuple) and isinstance(grad_out_, tuple)
     # print('in', [z.size() if z is not None else None for z in grad_in_])
@@ -128,8 +149,8 @@ def backward_hook(m: nn.Module, grad_in_, grad_out_, module_name, callback_dict,
     return (new_grad,) + grad_in_[1:]
 
 
-def augment_module_post(net: nn.Module, callback_dict: dict) -> (dict, list):
-    forward_hook_remove_func_list = []
+def _augment_module_post(net: nn.Module, callback_dict: dict) -> (dict, list):
+    backward_hook_remove_func_list = []
 
     vis_param_dict = dict()
     vis_param_dict['layer'] = None
@@ -139,8 +160,12 @@ def augment_module_post(net: nn.Module, callback_dict: dict) -> (dict, list):
     for x, y in net.named_modules():
         if not isinstance(y, nn.Sequential) and y is not net:
             # I should add hook to all layers, in case they will be needed.
-            forward_hook_remove_func_list.append(
+            backward_hook_remove_func_list.append(
                 y.register_backward_hook(
-                    partial(backward_hook, module_name=x, callback_dict=callback_dict, vis_param_dict=vis_param_dict)))
+                    partial(_backward_hook, module_name=x, callback_dict=callback_dict, vis_param_dict=vis_param_dict)))
 
-    return vis_param_dict, forward_hook_remove_func_list
+    def remove_handles():
+        for x in backward_hook_remove_func_list:
+            x.remove()
+
+    return vis_param_dict, remove_handles
