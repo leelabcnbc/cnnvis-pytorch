@@ -35,3 +35,10 @@ are implemented using `torch.nn.Module`, not `torch.nn.functional`, then the cod
 While it's possible to define some modified ReLU layers,
 as [suggested](https://discuss.pytorch.org/t/inherit-from-autograd-function/2117/2) by PyTorch developers,
 this make break the code, as autograd assumes correct grad computation.
+
+## Installation
+
+You can install the module by running the following command: 
+
+`pip install git+https://github.com/leelabcnbc/cnnvis-pytorch`
+
